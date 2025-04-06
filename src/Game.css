@@ -1,0 +1,174 @@
+/* Game.css */
+.game-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 1rem;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  }
+  
+  .game-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  
+  .game-header h1 {
+    margin: 0;
+    color: #1f2937;
+  }
+  
+  .back-button {
+    background-color: #6b7280;
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+  
+  .back-button:hover {
+    background-color: #4b5563;
+  }
+  
+  .game-content {
+    display: flex;
+    gap: 2rem;
+    margin-bottom: 2rem;
+    min-height: 500px;
+  }
+  
+  .file-browser {
+    flex: 1;
+    max-width: 300px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  
+  .file-browser h2 {
+    margin: 0;
+    padding: 1rem;
+    background-color: #f3f4f6;
+    border-bottom: 1px solid #e5e7eb;
+    color: #1f2937;
+  }
+  
+  .file-browser .file-list {
+    height: 450px;
+    overflow-y: auto;
+  }
+  
+  .file-browser .file-item {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #e5e7eb;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    transition: background-color 0.2s;
+  }
+  
+  .file-browser .file-item:hover {
+    background-color: #f9fafb;
+  }
+  
+  .file-browser .file-item.selected {
+    background-color: #eff6ff;
+    border-left: 4px solid #3b82f6;
+  }
+  
+  .file-browser .file-icon {
+    margin-right: 0.75rem;
+    font-size: 1.25rem;
+  }
+  
+  .file-browser .file-name {
+    font-size: 0.9rem;
+    color: #4b5563;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  .content-viewer {
+    flex: 2;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 1rem;
+    overflow: auto;
+    height: 500px;
+    background-color: #f9fafb;
+  }
+  
+  .content-viewer img {
+    max-width: 100%;
+    max-height: 450px;
+    display: block;
+    margin: 0 auto;
+  }
+  
+  .content-viewer pre {
+    font-family: monospace;
+    white-space: pre-wrap;
+    margin: 0;
+    padding: 1rem;
+    background-color: #f1f5f9;
+    border-radius: 6px;
+    overflow: auto;
+    height: 100%;
+  }
+  
+  .content-viewer .empty-state {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    color: #6b7280;
+    font-style: italic;
+  }
+  
+  .content-viewer .file-details {
+    padding: 1rem;
+  }
+  
+  .game-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    background-color: #f3f4f6;
+    border-radius: 8px;
+  }
+  
+  .game-controls p {
+    margin: 0;
+    color: #4b5563;
+  }
+  
+  .play-button {
+    background-color: #10b981;
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 6px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+  
+  .play-button:hover {
+    background-color: #059669;
+  }
+  
+  .loading {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    font-size: 1.5rem;
+    color: #4b5563;
+  }
