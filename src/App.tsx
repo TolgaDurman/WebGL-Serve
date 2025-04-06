@@ -35,7 +35,8 @@ function App() {
       const entry = items[0]?.webkitGetAsEntry?.();
       
       if (entry && entry.isDirectory) {
-        setFolderName(entry.name);
+        const folderName = entry.name;
+        setFolderName(folderName);
         await processDirectoryEntry(entry, fileEntries, fileContents);
         setFiles(fileEntries);
       } else {
@@ -300,6 +301,10 @@ function App() {
                     setFolderName(null);
                     setFiles([]);
                     fileContentsRef.current.clear();
+                    const fileInput = document.getElementById('folder-input') as HTMLInputElement;
+                    if (fileInput) {
+                      fileInput.value = ''; // Reset file input value
+                    }
                   }} 
                   className="reset-button"
                 >
