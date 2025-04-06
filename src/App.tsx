@@ -8,6 +8,7 @@ const generateId = () => `file_${Date.now()}_${Math.random().toString(36).substr
 
 function App() {
   const [folderName, setFolderName] = useState<string | null>(null);
+  const [folderPath, setFolderPath] = useState<string | null>(null);
   const [files, setFiles] = useState<FileData[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [loadingProgress, setLoadingProgress] = useState<number>(0);
@@ -36,8 +37,10 @@ function App() {
       
       if (entry && entry.isDirectory) {
         const folderName = entry.name;
+        const fullPath = folderName; // Use folderName as a fallback for the full path
         setFolderName(folderName);
-        await processDirectoryEntry(entry, fileEntries, fileContents);
+        setFolderPath(fullPath);
+        await processDirectoryEntry(entry, fileEntries, fileContents, folderName); // Pass folderName as basePath
         setFiles(fileEntries);
       } else {
         // Handle files directly dropped
@@ -47,9 +50,19 @@ function App() {
           // Try to get folder name
           const firstFilePath = (droppedFiles[0] as any).webkitRelativePath || '';
           const commonFolder = firstFilePath.split('/')[0] || 'Unknown Folder';
+          const fullPath = droppedFiles[0]?.webkitRelativePath || commonFolder;
           setFolderName(commonFolder);
+          setFolderPath(fullPath);
           
-          await processFiles(droppedFiles, fileEntries, fileContents);
+          // Prepend the folder name to file paths
+          await processFiles(
+            droppedFiles.map(file => ({
+              ...file,
+              webkitRelativePath: `${commonFolder}/${file.name}`
+            })), 
+            fileEntries, 
+            fileContents
+          );
           setFiles(fileEntries);
         }
       }
@@ -189,7 +202,9 @@ function App() {
     // Get folder name from first file's path
     const firstFilePath = (selectedFiles[0] as any).webkitRelativePath || '';
     const folderName = firstFilePath.split('/')[0] || 'Selected Folder';
+    const fullPath = (selectedFiles[0] as any).webkitRelativePath || folderName;
     setFolderName(folderName);
+    setFolderPath(fullPath);
     
     await processFiles(filesArray, fileEntries, fileContents);
     setFiles(fileEntries);
@@ -249,7 +264,7 @@ function App() {
   return (
     <div className="app-container">
       <h1>Game Folder Uploader</h1>
-      
+      {folderPath && <p className="folder-path">Full Path: {folderPath}</p>}
       <div 
         className={`dropzone ${folderName ? 'has-folder' : ''}`}
         onDrop={handleDrop}
@@ -260,13 +275,13 @@ function App() {
           type="file"
           onChange={handleFolderSelect}
           style={{ display: 'none' }}
-          {...({ webkitdirectory: '', directory: '', multiple: true } as any)}
+          {...({ webkitdirectory: '', directory: '', multiple: true } as any)} // Ensure folder selection is supported
         />
         
         {!folderName ? (
           <>
             <div className="upload-icon">📁</div>
-            <p>Drag and drop a folder here</p>
+            <p>Drag and drop a folder here or select one</p> {/* Updated text */}
             <button onClick={openFolderDialog} className="select-button">
               Select Folder
             </button>
@@ -299,6 +314,7 @@ function App() {
                 <button 
                   onClick={() => {
                     setFolderName(null);
+                    setFolderPath(null);
                     setFiles([]);
                     fileContentsRef.current.clear();
                     const fileInput = document.getElementById('folder-input') as HTMLInputElement;
