@@ -250,6 +250,17 @@ function App() {
     }
   };
 
+  const clearStorage = async () => {
+    if (window.confirm('Are you sure you want to clear all stored data?')) {
+      setIsLoading(true);
+      setLoadingMessage('Clearing storage...');
+      await gameStorage.clearAll();
+      setIsLoading(false);
+      setLoadingMessage('');
+      alert('Storage cleared successfully.');
+    }
+  };
+
   // Handle drag events
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -263,6 +274,12 @@ function App() {
 
   return (
     <div className="app-container">
+      <button 
+        onClick={clearStorage} 
+        className="clear-storage-button"
+      >
+        Clear Storage
+      </button>
       <h1>Game Folder Uploader</h1>
       {folderPath && <p className="folder-path">Full Path: {folderPath}</p>}
       <div 
@@ -325,6 +342,12 @@ function App() {
                   className="reset-button"
                 >
                   Reset
+                </button>
+                <button 
+                  onClick={clearStorage} 
+                  className="clear-storage-button"
+                >
+                  Clear Storage
                 </button>
               </>
             )}

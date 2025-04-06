@@ -102,6 +102,24 @@ h1 {
   background-color: #e11d48;
 }
 
+.clear-storage-button {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background-color: #6b7280;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.clear-storage-button:hover {
+  background-color: #4b5563;
+}
+
 .progress-bar-container {
   width: 100%;
   height: 20px;
