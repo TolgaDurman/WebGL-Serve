@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { gameStorage, FileData, FolderData } from './gameStorage';
+import { Unity, useUnityContext } from "react-unity-webgl";
 import './Game.css';
 
 function Game() {
@@ -9,7 +10,16 @@ function Game() {
   const [currentFileContent, setCurrentFileContent] = useState<any>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [loadingMessage, setLoadingMessage] = useState<string>('Loading game assets...');
+  const [isOverlayVisible, setIsOverlayVisible] = useState<boolean>(false);
+  const [unityConfig, setUnityConfig] = useState({
+    loaderUrl: "",
+    dataUrl: "",
+    frameworkUrl: "",
+    codeUrl: "",
+  });
   const navigate = useNavigate();
+
+  const { unityProvider } = useUnityContext(unityConfig);
 
   // Load folder data from IndexedDB
   useEffect(() => {
@@ -30,22 +40,67 @@ function Game() {
         // Get folder metadata
         const data = await gameStorage.getFolderData(folderId);
         
-        if (!data) {
+        if (!data || !data.files) {
           alert('Failed to load game data. Please try again.');
           navigate('/');
           return;
         }
+        console.log('Loaded folder data:', data);
         
         setFolderData(data);
+
+        // Dynamically fetch Unity WebGL files from IndexedDB
+        const loaderFile = data.files.find(file => file.name.endsWith('.loader.js'));
+        const dataFile = data.files.find(file => file.name.endsWith('.data'));
+        const frameworkFile = data.files.find(file => file.name.endsWith('.framework.js'));
+        const wasmFile = data.files.find(file => file.name.endsWith('.wasm'));
+
+        if (!loaderFile || !dataFile || !frameworkFile || !wasmFile) {
+          throw new Error('Unity WebGL files are missing in the folder data.');
+        }
+
+        // Fetch file content and create blob URLs
+        const createBlobUrl = async (file: FileData, type: string) => {
+          const content = await gameStorage.getFileContent(file.contentId!);
+          if (!content) {
+            throw new Error(`Failed to load content for file: ${file.name}`);
+          }
+          return URL.createObjectURL(new Blob([content], { type }));
+        };
+
+        const loaderUrl = await createBlobUrl(loaderFile, 'text/javascript');
+        const dataUrl = await createBlobUrl(dataFile, 'application/octet-stream');
+        const frameworkUrl = await createBlobUrl(frameworkFile, 'text/javascript');
+        const wasmUrl = await createBlobUrl(wasmFile, 'application/wasm');
+
+        // Configure Unity context
+        setUnityConfig({
+          loaderUrl,
+          dataUrl,
+          frameworkUrl,
+          codeUrl: wasmUrl,
+        });
+
         setIsLoading(false);
+
+        // Cleanup blob URLs when the component unmounts
+        return () => {
+          URL.revokeObjectURL(loaderUrl);
+          URL.revokeObjectURL(dataUrl);
+          URL.revokeObjectURL(frameworkUrl);
+          URL.revokeObjectURL(wasmUrl);
+        };
       } catch (err) {
         console.error('Error loading game data:', err);
         alert('Error loading folder data. Please try again.');
         navigate('/');
       }
     };
-    
-    loadGameData();
+
+    const cleanup = loadGameData();
+    return () => {
+      if (cleanup instanceof Function) cleanup();
+    };
   }, [navigate]);
 
   // Load file content when a file is selected
@@ -75,6 +130,26 @@ function Game() {
   // Go back to uploader
   const goBack = () => {
     navigate('/');
+  };
+
+  // Function to handle opening the overlay
+  const openOverlay = () => {
+    try {
+      setIsOverlayVisible(true);
+    } catch (err) {
+      console.error('Error opening overlay:', err);
+      alert('Failed to open the game overlay. Please try again.');
+    }
+  };
+
+  // Function to handle closing the overlay
+  const closeOverlay = () => {
+    try {
+      setIsOverlayVisible(false);
+    } catch (err) {
+      console.error('Error closing overlay:', err);
+      alert('Failed to close the game overlay. Please try again.');
+    }
   };
 
   // Render file content based on type
@@ -133,6 +208,18 @@ function Game() {
 
   return (
     <div className="game-container">
+      {/* Overlay for Unity WebGL game */}
+      {isOverlayVisible && (
+        <div className="overlay">
+          <div className="overlay-content">
+            <button className="close-button" onClick={closeOverlay}>X</button>
+            <div className="unity-container">
+              <Unity unityProvider={unityProvider} />
+            </div>
+          </div>
+        </div>
+      )}
+
       <header className="game-header">
         <h1>Game: {folderData?.name}</h1>
         <button onClick={goBack} className="back-button">Back to Uploader</button>
@@ -170,7 +257,7 @@ function Game() {
       
       <div className="game-controls">
         <p>Game assets loaded: {folderData?.files.length} files</p>
-        <button className="play-button">Play Game</button>
+        <button className="play-button" onClick={openOverlay}>Play Game</button>
       </div>
     </div>
   );
