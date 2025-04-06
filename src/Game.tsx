@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { gameStorage, FileData, FolderData } from './gameStorage';
-import { Unity, useUnityContext } from "react-unity-webgl";
+import { Unity, useUnityContext } from 'react-unity-webgl';
 import './Game.css';
 
 function Game() {
@@ -11,15 +11,35 @@ function Game() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [loadingMessage, setLoadingMessage] = useState<string>('Loading game assets...');
   const [isOverlayVisible, setIsOverlayVisible] = useState<boolean>(false);
-  const [unityConfig, setUnityConfig] = useState({
-    loaderUrl: "",
-    dataUrl: "",
-    frameworkUrl: "",
-    codeUrl: "",
-  });
+  const [unityUrls, setUnityUrls] = useState<{
+    loaderUrl: string;
+    dataUrl: string;
+    frameworkUrl: string;
+    codeUrl: string;
+  } | null>(null);
+  const [unityError, setUnityError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  const { unityProvider } = useUnityContext(unityConfig);
+  const { unityProvider, isLoaded, loadingProgression } = useUnityContext(
+    unityUrls || {
+      loaderUrl: '',
+      dataUrl: '',
+      frameworkUrl: '',
+      codeUrl: '',
+    }
+  );
+
+  // Monitor loading state for potential errors
+  useEffect(() => {
+    if (unityUrls && !isLoaded && loadingProgression === 0) {
+      // If we've been stuck at 0% for more than 5 seconds, show an error
+      const timeout = setTimeout(() => {
+        setUnityError('Unity failed to initialize. Please check the browser console for errors.');
+      }, 5000);
+
+      return () => clearTimeout(timeout);
+    }
+  }, [unityUrls, isLoaded, loadingProgression]);
 
   // Load folder data from IndexedDB
   useEffect(() => {
@@ -27,6 +47,7 @@ function Game() {
       try {
         // Get the current folder ID from sessionStorage
         const folderId = sessionStorage.getItem('currentGameFolder');
+        console.log('Loading game data for folder:', folderId);
         
         if (!folderId) {
           alert('No folder data found. Please select a folder first.');
@@ -35,12 +56,15 @@ function Game() {
         }
         
         // Initialize IndexedDB
+        console.log('Initializing IndexedDB...');
         await gameStorage.init();
         
         // Get folder metadata
+        console.log('Fetching folder metadata...');
         const data = await gameStorage.getFolderData(folderId);
         
         if (!data || !data.files) {
+          console.error('No folder data or files found:', data);
           alert('Failed to load game data. Please try again.');
           navigate('/');
           return;
@@ -49,46 +73,59 @@ function Game() {
         
         setFolderData(data);
 
-        // Dynamically fetch Unity WebGL files from IndexedDB
-        const loaderFile = data.files.find(file => file.name.endsWith('.loader.js'));
-        const dataFile = data.files.find(file => file.name.endsWith('.data'));
-        const frameworkFile = data.files.find(file => file.name.endsWith('.framework.js'));
-        const wasmFile = data.files.find(file => file.name.endsWith('.wasm'));
-
-        if (!loaderFile || !dataFile || !frameworkFile || !wasmFile) {
-          throw new Error('Unity WebGL files are missing in the folder data.');
-        }
-
-        // Fetch file content and create blob URLs
-        const createBlobUrl = async (file: FileData, type: string) => {
-          const content = await gameStorage.getFileContent(file.contentId!);
-          if (!content) {
-            throw new Error(`Failed to load content for file: ${file.name}`);
-          }
-          return URL.createObjectURL(new Blob([content], { type }));
+        // Find Unity build files dynamically
+        const buildFiles = {
+          loader: data.files.find(file => file.name.endsWith('.loader.js')),
+          data: data.files.find(file => file.name.endsWith('.data')),
+          framework: data.files.find(file => file.name.endsWith('.framework.js')),
+          wasm: data.files.find(file => file.name.endsWith('.wasm')),
         };
 
-        const loaderUrl = await createBlobUrl(loaderFile, 'text/javascript');
-        const dataUrl = await createBlobUrl(dataFile, 'application/octet-stream');
-        const frameworkUrl = await createBlobUrl(frameworkFile, 'text/javascript');
-        const wasmUrl = await createBlobUrl(wasmFile, 'application/wasm');
-
-        // Configure Unity context
-        setUnityConfig({
-          loaderUrl,
-          dataUrl,
-          frameworkUrl,
-          codeUrl: wasmUrl,
+        // Log found files for debugging
+        console.log('Found Unity build files:', {
+          loader: buildFiles.loader?.name,
+          data: buildFiles.data?.name,
+          framework: buildFiles.framework?.name,
+          wasm: buildFiles.wasm?.name
         });
 
+        if (!buildFiles.loader || !buildFiles.data || !buildFiles.framework || !buildFiles.wasm) {
+          const missingFiles = Object.entries(buildFiles)
+            .filter(([_, file]) => !file)
+            .map(([type]) => type);
+          throw new Error(`Missing Unity build files: ${missingFiles.join(', ')}`);
+        }
+
+        // Create blob URLs for Unity build files
+        const loaderContent = await gameStorage.getFileContent(buildFiles.loader.contentId!);
+        const dataContent = await gameStorage.getFileContent(buildFiles.data.contentId!);
+        const frameworkContent = await gameStorage.getFileContent(buildFiles.framework.contentId!);
+        const wasmContent = await gameStorage.getFileContent(buildFiles.wasm.contentId!);
+
+        if (!loaderContent || !dataContent || !frameworkContent || !wasmContent) {
+          throw new Error('Failed to load Unity build file contents');
+        }
+
+        // Create blobs with correct MIME types
+        const loaderBlob = new Blob([loaderContent], { type: 'application/javascript' });
+        const dataBlob = new Blob([dataContent], { type: 'application/octet-stream' });
+        const frameworkBlob = new Blob([frameworkContent], { type: 'application/javascript' });
+        const wasmBlob = new Blob([wasmContent], { type: 'application/wasm' });
+
+        const urls = {
+          loaderUrl: URL.createObjectURL(loaderBlob),
+          dataUrl: URL.createObjectURL(dataBlob),
+          frameworkUrl: URL.createObjectURL(frameworkBlob),
+          codeUrl: URL.createObjectURL(wasmBlob),
+        };
+
+        console.log('Created Unity build file URLs:', urls);
+        setUnityUrls(urls);
         setIsLoading(false);
 
-        // Cleanup blob URLs when the component unmounts
+        // Cleanup blob URLs when component unmounts
         return () => {
-          URL.revokeObjectURL(loaderUrl);
-          URL.revokeObjectURL(dataUrl);
-          URL.revokeObjectURL(frameworkUrl);
-          URL.revokeObjectURL(wasmUrl);
+          Object.values(urls).forEach(url => URL.revokeObjectURL(url));
         };
       } catch (err) {
         console.error('Error loading game data:', err);
@@ -135,6 +172,10 @@ function Game() {
   // Function to handle opening the overlay
   const openOverlay = () => {
     try {
+      if (!unityUrls) {
+        alert('Game is still loading. Please wait...');
+        return;
+      }
       setIsOverlayVisible(true);
     } catch (err) {
       console.error('Error opening overlay:', err);
@@ -213,8 +254,44 @@ function Game() {
         <div className="overlay">
           <div className="overlay-content">
             <button className="close-button" onClick={closeOverlay}>X</button>
-            <div className="unity-container">
-              <Unity unityProvider={unityProvider} />
+            <div className="game-frame">
+              {unityUrls && (
+                <>
+                  {!isLoaded && (
+                    <div className="loading-progress">
+                      {unityError ? (
+                        <div className="error-message">
+                          {unityError}
+                          <button 
+                            onClick={() => {
+                              setUnityError(null);
+                              // Try reloading the Unity context
+                              setUnityUrls({...unityUrls});
+                            }}
+                            className="retry-button"
+                          >
+                            Retry
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          Loading Unity... {Math.round(loadingProgression * 100)}%
+                          <div className="loading-bar">
+                            <div 
+                              className="loading-bar-progress" 
+                              style={{ width: `${loadingProgression * 100}%` }}
+                            />
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                  <Unity
+                    unityProvider={unityProvider}
+                    style={{ width: '100%', height: '100%' }}
+                  />
+                </>
+              )}
             </div>
           </div>
         </div>
